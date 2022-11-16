@@ -4,7 +4,7 @@ A library which provides macros that automatically re-execute both synchronous a
 
 ## Examples
 
-Here are two simple examples using both the synchronous and asynchronous macros.
+Here are two simple examples using both the synchronous and asynchronous macros. Note that all function inputs must be **bounded to an identifier** (variable).
 
 ### Synchronous
 
@@ -17,12 +17,14 @@ fn can_fail(input: &str) -> Result<i32, std::num::ParseIntError> {
 
 fn main() {
     // Retry the can_fail function 5 times with the input "not_a_number"
-    let res = retry!(5, can_fail, "not_a_number");
+    let var = "not_a_number";
+    let res = retry!(5, can_fail, var);
     assert!(res.is_err());
     assert_eq!(res.unwrap_err().retries.len(), 5);
 
     // Retry the can_fail function 5 times with the input "not_a_number", sleep for 100 milliseconds between retries
-    let res = retry_sleep!(5, 100, can_fail, "not_a_number");
+    let var = "not_a_number";
+    let res = retry_sleep!(5, 100, can_fail, var);
     assert!(res.is_err());
     assert_eq!(res.unwrap_err().retries.len(), 5);
 }
@@ -41,12 +43,14 @@ async fn can_fail_async(input: &str) -> Result<i32, std::num::ParseIntError> {
 #[tokio::main]
 async fn main() {
     // Retry the can_fail function 5 times with the input "not_a_number"
-    let res = retry_async!(5, can_fail_async, "not_a_number");
+    let var = "not_a_number";
+    let res = retry_async!(5, can_fail_async, var);
     assert!(res.is_err());
     assert_eq!(res.unwrap_err().retries.len(), 5);
 
     // Retry the can_fail function 5 times with the input "not_a_number", sleep for 100 milliseconds between retries
-    let res = retry_async_sleep!(5, 100, can_fail_async, "not_a_number");
+    let var = "not_a_number";
+    let res = retry_async_sleep!(5, 100, can_fail_async, var);
     assert!(res.is_err());
     assert_eq!(res.unwrap_err().retries.len(), 5);
 }
