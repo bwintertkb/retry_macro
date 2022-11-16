@@ -121,6 +121,7 @@ macro_rules! retry_async_sleep {
             let r = (async {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
+                shadow_clone::shadow_clone!($($params)*);
                 match $f($($params)*).await {
                     Ok(res) => return Ok(res),
                     Err(e) => {
