@@ -1,22 +1,25 @@
 //! # Overview
 //! A library which consists of declarative macros which retry the execution of functions upon failure. Sync and async execution is supported (async via tokio).
 
-use std::{error::Error, fmt::Display};
+use std::{
+    error::Error,
+    fmt::{Debug, Display},
+};
 
 /// If the function fails after n attempts, the returned error will be stored in the RetryError struct
 #[derive(Debug)]
-pub struct RetryError<T: Error> {
+pub struct RetryError<T: Debug> {
     /// The returned errors are stored in the retries field
     pub retries: Vec<T>,
 }
 
-impl<T: Error> Display for RetryError<T> {
+impl<T: Debug> Display for RetryError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Retry Error")
     }
 }
 
-impl<T: Error> Error for RetryError<T> {}
+impl<T: Debug> Error for RetryError<T> {}
 
 /// Retry synchronous function without sleep in between retries. Arguments are: number of retries, function, function arguments.
 #[macro_export]
