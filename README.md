@@ -2,6 +2,10 @@
 
 A library which provides macros that automatically re-execute both synchronous and asynchronous (tokio with sleep) functions upon failure.
 
+### Feature flags
+
+Enable `features = ["tokio"]` if you want to use the `retry_async_sleep` macro.
+
 ## Examples
 
 Here are two simple examples using both the synchronous and asynchronous macros. Note that all function inputs must be **bounded to an identifier** (variable).

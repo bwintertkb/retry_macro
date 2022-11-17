@@ -1,6 +1,7 @@
 //! # Overview
 //! A library which consists of declarative macros which retry the execution of functions upon failure. Sync and async execution is supported (async via tokio).
 
+pub extern crate shadow_clone;
 /// These macros could execute the function more than once. Hence, before each iteration the functiona arguments are cloned/copied to avoid the 'move' compilation error.
 /// Therefore, the function arguments must be binded to identifier/variables.
 /// # Examples
@@ -52,7 +53,7 @@ macro_rules! retry {
             (|| {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
-                shadow_clone::shadow_clone!($($params)*);
+                $crate::shadow_clone::shadow_clone!($($params)*);
                 match $f($($params)*) {
                     Ok(res) => return Ok(res),
                     Err(e) => {
@@ -74,7 +75,7 @@ macro_rules! retry_sleep {
             (|| {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
-                shadow_clone::shadow_clone!($($params)*);
+                $crate::shadow_clone::shadow_clone!($($params)*);
                 match $f($($params)*) {
                     Ok(res) => return Ok(res),
                     Err(e) => {
@@ -97,7 +98,7 @@ macro_rules! retry_async {
             let r = (async {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
-                shadow_clone::shadow_clone!($($params)*);
+                $crate::shadow_clone::shadow_clone!($($params)*);
                 match $f($($params)*).await {
                     Ok(res) => return Ok(res),
                     Err(e) => {
@@ -121,7 +122,7 @@ macro_rules! retry_async_sleep {
             let r = (async {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
-                shadow_clone::shadow_clone!($($params)*);
+                $crate::shadow_clone::shadow_clone!($($params)*);
                 match $f($($params)*).await {
                     Ok(res) => return Ok(res),
                     Err(e) => {
