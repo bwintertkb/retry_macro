@@ -48,13 +48,13 @@ impl<T: Debug> Error for RetryError<T> {}
 /// Retry synchronous function without sleep in between retries. Arguments are: number of retries, function, function arguments.
 #[macro_export]
 macro_rules! retry {
-    ($retries: expr, $f: expr, $($params:tt)* ) => {
+    ($retries: expr, $f: ident$(,)* $($params:ident),* $(,)?) => {
         {
             (|| {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
-                $crate::shadow_clone::shadow_clone!($($params)*);
-                match $f($($params)*) {
+                $crate::shadow_clone::shadow_clone!($($params),*);
+                match $f($($params),*) {
                     Ok(res) => return Ok(res),
                     Err(e) => {
                         errs.push(e);
@@ -70,7 +70,7 @@ macro_rules! retry {
 /// Retry synchronous function with sleep in between retries. Arguments are: number of retries, sleep time (milliseconds), function, function arguments.
 #[macro_export]
 macro_rules! retry_sleep {
-    ($retries: expr, $time_ms: expr, $f: expr, $($params:tt)* ) => {
+    ($retries: expr, $time_ms: expr, $f: ident$(,)* $($params:ident),* $(,)? ) => {
         {
             (|| {
             let mut errs = Vec::with_capacity($retries);
@@ -93,13 +93,13 @@ macro_rules! retry_sleep {
 /// Retry asynchronous function without sleep in between retries. Arguments are: number of retries, function, function arguments.
 #[macro_export]
 macro_rules! retry_async {
-    ($retries: expr, $f: expr, $($params:tt)* ) => {
+    ($retries: expr,  $f: ident$(,)* $($params:ident),* $(,)?) => {
         {
             let r = (async {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
-                $crate::shadow_clone::shadow_clone!($($params)*);
-                match $f($($params)*).await {
+                $crate::shadow_clone::shadow_clone!($($params),*);
+                match $f($($params),*).await {
                     Ok(res) => return Ok(res),
                     Err(e) => {
                         errs.push(e);
@@ -117,13 +117,13 @@ macro_rules! retry_async {
 #[macro_export]
 #[cfg(feature = "tokio")]
 macro_rules! retry_async_sleep {
-    ($retries: expr, $time_ms: expr, $f: expr, $($params:tt)* ) => {
+    ($retries: expr, $time_ms: expr, $f: ident$(,)* $($params:ident),* $(,)?  ) => {
         {
             let r = (async {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
-                $crate::shadow_clone::shadow_clone!($($params)*);
-                match $f($($params)*).await {
+                $crate::shadow_clone::shadow_clone!($($params),*);
+                match $f($($params),*).await {
                     Ok(res) => return Ok(res),
                     Err(e) => {
                         errs.push(e);
@@ -142,6 +142,10 @@ mod tests {
     use std::{error::Error, fmt::Display, time::Instant, vec};
 
     use super::*;
+
+    fn no_args() -> Result<i32, TestError> {
+        Ok(2)
+    }
 
     fn one_arg(arg1: i32) -> Result<i32, TestError> {
         Ok(arg1)
@@ -166,6 +170,10 @@ mod tests {
 
     impl Error for TestError {}
 
+    fn will_fail_no_args() -> Result<(), TestError> {
+        Err(TestError)
+    }
+
     fn failing_function(_arg1: i32, _arg2: i32) -> Result<i32, TestError> {
         Err(TestError)
     }
@@ -180,9 +188,75 @@ mod tests {
     }
 
     #[cfg(feature = "tokio")]
+    async fn no_args_async() -> Result<i32, TestError> {
+        Ok(1)
+    }
+
+    #[cfg(feature = "tokio")]
+    async fn no_args_async_fail() -> Result<i32, TestError> {
+        Err(TestError)
+    }
+
+    #[cfg(feature = "tokio")]
     async fn failing_function_async(_arg1: i32, _arg2: i32) -> Result<i32, TestError> {
         tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
         Err(TestError)
+    }
+
+    #[test]
+    fn test_will_pass_no_args() {
+        let actual = retry!(5, no_args);
+        assert!(actual.is_ok());
+    }
+
+    #[test]
+    fn test_will_pass_no_args_w_sleep() {
+        let actual = retry_sleep!(2, 10, no_args);
+        assert!(actual.is_ok());
+    }
+
+    #[test]
+    fn test_will_fail_no_args() {
+        let actual = retry!(5, will_fail_no_args);
+        assert!(actual.is_err());
+        assert_eq!(actual.unwrap_err().retries.len(), 5);
+    }
+
+    #[test]
+    fn test_will_fail_no_args_w_sleep() {
+        let actual = retry_sleep!(2, 10, will_fail_no_args);
+        assert!(actual.is_err());
+        assert_eq!(actual.unwrap_err().retries.len(), 2);
+    }
+
+    #[cfg(feature = "tokio")]
+    #[tokio::test]
+    async fn test_will_pass_no_args_async() {
+        let actual = retry_async!(5, no_args_async);
+        assert!(actual.is_ok());
+    }
+
+    #[cfg(feature = "tokio")]
+    #[tokio::test]
+    async fn test_will_fail_no_args_async() {
+        let actual = retry_async!(4, no_args_async_fail);
+        assert!(actual.is_err());
+        assert_eq!(actual.unwrap_err().retries.len(), 4);
+    }
+
+    #[cfg(feature = "tokio")]
+    #[tokio::test]
+    async fn test_pass_function_async_no_args_w_sleep() {
+        let actual = retry_async_sleep!(2, 10, no_args_async);
+        assert!(actual.is_ok());
+    }
+
+    #[cfg(feature = "tokio")]
+    #[tokio::test]
+    async fn test_fail_function_async_no_args_w_sleep() {
+        let actual = retry_async_sleep!(2, 10, no_args_async_fail);
+        assert!(actual.is_err());
+        assert_eq!(actual.unwrap_err().retries.len(), 2);
     }
 
     #[test]
