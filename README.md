@@ -1,10 +1,11 @@
 # retry_macro
 
-A library which provides macros that automatically re-execute both synchronous and asynchronous (tokio with sleep) functions upon failure.
+A library which provides macros that automatically re-execute both synchronous and asynchronous (tokio/async-std with sleep) functions upon failure.
 
 ### Feature flags
 
-Enable `features = ["tokio"]` if you want to use the `retry_async_sleep` macro.
+- Enable `features = ["tokio"]` if you want to use the `retry_async_sleep` macro.
+- Enable `features = ["async-std"]` if you want to use the `retry_async_sleep` macro with async-std.
 
 ## Examples
 
@@ -34,7 +35,7 @@ fn main() {
 }
 ```
 
-### Asynchronous
+### Asynchronous (with tokio)
 
 ```rust
 use retry_macro::{retry_async, retry_async_sleep, RetryError};
@@ -45,6 +46,32 @@ async fn can_fail_async(input: &str) -> Result<i32, std::num::ParseIntError> {
 }
 
 #[tokio::main]
+async fn main() {
+    // Retry the can_fail function 5 times with the input "not_a_number"
+    let var = "not_a_number";
+    let res = retry_async!(5, can_fail_async, var);
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err().retries.len(), 5);
+
+    // Retry the can_fail function 5 times with the input "not_a_number", sleep for 100 milliseconds between retries
+    let var = "not_a_number";
+    let res = retry_async_sleep!(5, 100, can_fail_async, var);
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err().retries.len(), 5);
+}
+```
+
+### Asynchronous (with async-std)
+
+```rust
+use retry_macro::{retry_async, retry_async_sleep, RetryError};
+
+async fn can_fail_async(input: &str) -> Result<i32, std::num::ParseIntError> {
+    async_std::task::sleep(std::time::Duration::from_millis(1)).await;
+    input.parse::<i32>()
+}
+
+#[async_std::main]
 async fn main() {
     // Retry the can_fail function 5 times with the input "not_a_number"
     let var = "not_a_number";
