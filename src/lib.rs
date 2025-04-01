@@ -115,10 +115,13 @@ macro_rules! retry_async {
 
 /// Retry asynchronous function with sleep (enable feature tokio) in between retries. Arguments are: number of retries, sleep time (milliseconds), function, function arguments.
 #[macro_export]
-#[cfg(feature = "tokio")]
+#[cfg(any(feature = "tokio", feature = "async-std"))]
 macro_rules! retry_async_sleep {
     ($retries: expr, $time_ms: expr, $f: ident$(,)* $($params:ident),* $(,)?  ) => {
         {
+            #[cfg(all(feature = "tokio", feature = "async-std"))]
+            compile_error!("tokio and async-std are mutually exclusive and cannot be enabled together");
+
             let r = (async {
             let mut errs = Vec::with_capacity($retries);
             for _ in 0..$retries {
@@ -127,7 +130,10 @@ macro_rules! retry_async_sleep {
                     Ok(res) => return Ok(res),
                     Err(e) => {
                         errs.push(e);
+                        #[cfg(feature = "tokio")]
                         tokio::time::sleep(tokio::time::Duration::from_millis($time_ms)).await;
+                        #[cfg(feature = "async-std")]
+                        async_std::task::sleep(std::time::Duration::from_millis($time_ms)).await;
                     }
                 }
             }
@@ -187,17 +193,17 @@ mod tests {
         Err(TestError)
     }
 
-    #[cfg(feature = "tokio")]
+    #[cfg(any(feature = "tokio", feature= "async-std"))]
     async fn no_args_async() -> Result<i32, TestError> {
         Ok(1)
     }
 
-    #[cfg(feature = "tokio")]
+    #[cfg(any(feature = "tokio", feature= "async-std"))]
     async fn no_args_async_fail() -> Result<i32, TestError> {
         Err(TestError)
     }
 
-    #[cfg(feature = "tokio")]
+    #[cfg(any(feature = "tokio"))]
     async fn failing_function_async(_arg1: i32, _arg2: i32) -> Result<i32, TestError> {
         tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
         Err(TestError)
@@ -252,6 +258,21 @@ mod tests {
     }
 
     #[cfg(feature = "tokio")]
+    #[tokio::test]
+    async fn test_fail_function_async_no_args_w_sleep() {
+        let actual = retry_async_sleep!(2, 10, no_args_async_fail);
+        assert!(actual.is_err());
+        assert_eq!(actual.unwrap_err().retries.len(), 2);
+    }
+
+    #[cfg(feature = "async-std")]
+    #[tokio::test]
+    async fn test_pass_function_async_no_args_w_sleep() {
+        let actual = retry_async_sleep!(2, 10, no_args_async);
+        assert!(actual.is_ok());
+    }
+
+    #[cfg(feature = "async-std")]
     #[tokio::test]
     async fn test_fail_function_async_no_args_w_sleep() {
         let actual = retry_async_sleep!(2, 10, no_args_async_fail);
